@@ -38,19 +38,18 @@ class LeopardPage extends StatelessWidget {
           left: 10,
           right: 0,
           top: screenHeight * 0.2,
-          child: SizedBox(
-            width: screenWidth * 0.95,
+          child: Image.asset(
+            width: screenWidth * 0.8,
             height: screenWidth * 0.7,
-            child: Image.asset(
-              "assets/images/leopard_black_n_white-1.png",
-              fit: BoxFit.contain,
-            ),
+            "assets/images/leopard_black_n_white-1.png",
+            fit: BoxFit.contain,
           ),
         ),
       ],
     );
   }
 }
+
 class LeopardPageDescription extends StatelessWidget {
   const LeopardPageDescription({super.key});
 

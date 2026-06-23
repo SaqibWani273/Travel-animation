@@ -41,15 +41,20 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
   final _duration = const Duration(milliseconds: 800);
   final _curve = Curves.easeOut;
   late final AnimationController vultureCircleAnimationController;
+  late final AnimationController otherAnimationsController;
   late final Animation<double> vultureCircleAnimation;
-  late final Animation<Offset> slideTowardsLeftAnimation;
-  late final Animation<Offset> slideTowardsRightAnimation;
-  bool circleAnimationForwaded = false;
 
+  bool circleAnimationForwaded = false;
+  late final ValueNotifier<bool> dragNotifier;
   @override
   void initState() {
     super.initState();
+    dragNotifier = ValueNotifier(false);
     vultureCircleAnimationController = AnimationController(
+      duration: _duration,
+      vsync: this,
+    );
+    otherAnimationsController = AnimationController(
       duration: _duration,
       vsync: this,
     );
@@ -57,32 +62,15 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
       parent: vultureCircleAnimationController,
       curve: _curve,
     );
-    slideTowardsLeftAnimation =
-        Tween<Offset>(
-          begin: const Offset(0.5, 0.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: vultureCircleAnimationController,
-            curve: _curve,
-          ),
-        );
-    slideTowardsRightAnimation =
-        Tween<Offset>(
-          begin: const Offset(-0.5, 0.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: vultureCircleAnimationController,
-            curve: _curve,
-          ),
-        );
-    _pageController = PageController(viewportFraction: 0.9)
+
+    // _pageController = PageController(viewportFraction: 0.9)
+    _pageController = PageController(viewportFraction: 1.0)
       ..addListener(() {
         // if (_pageController.page! >= 0.8 && !circleAnimationForwaded) {
         if (_pageController.page! >= 0.5 && !circleAnimationForwaded) {
           circleAnimationForwaded = true;
           vultureCircleAnimationController.forward();
+          otherAnimationsController.forward();
         }
       });
   }
@@ -121,18 +109,26 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
             ),
             Expanded(
               child: PageView(
-                padEnds: _currentPage == 0 ? false : true,
+                padEnds: false,
                 onPageChanged: (value) => setState(() {
                   _currentPage = value;
                   if (_currentPage == 0) {
                     circleAnimationForwaded = false;
                     vultureCircleAnimationController.reset();
+                    otherAnimationsController.reset();
                   }
                 }),
                 controller: _pageController,
                 children: [
                   LeopardPage(),
-                  VulturePage(animation: vultureCircleAnimation),
+                  VulturePage(
+                    // animation: vultureCircleAnimation,
+                    otherAnimationsController: otherAnimationsController,
+                    vultureCircleAnimationController:
+                        vultureCircleAnimationController,
+                    vultureCircleAnimation: vultureCircleAnimation,
+                    dragNotifier: dragNotifier,
+                  ),
                 ],
               ),
             ),
@@ -144,13 +140,7 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_currentPage == 0)
-                    LeopardPageDescription()
-                  else
-                    VulturePageDescription(
-                      slideTowardsLeftAnimation: slideTowardsLeftAnimation,
-                      slideTowardsRightAnimation: slideTowardsRightAnimation,
-                    ),
+                  if (_currentPage == 0) LeopardPageDescription(),
 
                   const SizedBox(height: 20),
                   // Dots + share row
