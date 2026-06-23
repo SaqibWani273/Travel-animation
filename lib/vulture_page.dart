@@ -1,21 +1,44 @@
-import 'dart:developer';
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
+/// Shared animation timing for the vulture screen widgets.
+const Duration _kAnimationDuration = Duration(milliseconds: 800);
+
+/// Palette used across the vulture screen.
+const Color _kMutedGrey = Color(0xFF9A9A9A);
+const Color _kCircleColor = Color.fromARGB(255, 174, 173, 173);
+
+const TextStyle _kSectionTitleStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 18,
+  fontWeight: FontWeight.w500,
+);
+const TextStyle _kCampInfoStyle = TextStyle(color: _kMutedGrey, fontSize: 13);
+const TextStyle _kDistanceStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 16,
+  fontWeight: FontWeight.w700,
+);
+
+/// Second page of the horizontal pager.
+///
+/// Reacts to a vertical drag by toggling a "details" layout: the hero image
+/// scales/slides aside, the circle backdrop collapses, and a vertical timeline
+/// replaces the collapsed progress dots.
 class VulturePage extends StatefulWidget {
-  // final Animation<double> animation;
+  /// Drives the circular backdrop scale (and is reused for fade transitions).
   final Animation<double> vultureCircleAnimation;
+
+  /// Controller backing [vultureCircleAnimation]; owned by the parent.
   final AnimationController vultureCircleAnimationController;
+
+  /// Drives the slide + fade of the supporting labels; owned by the parent.
   final AnimationController otherAnimationsController;
-  final ValueNotifier<bool> dragNotifier;
+
   const VulturePage({
     super.key,
-    // required this.animation,
     required this.vultureCircleAnimationController,
     required this.vultureCircleAnimation,
     required this.otherAnimationsController,
-    required this.dragNotifier,
   });
 
   @override
@@ -23,282 +46,264 @@ class VulturePage extends StatefulWidget {
 }
 
 class _VulturePageState extends State<VulturePage>
-    with TickerProviderStateMixin {
-  bool showDetails = false;
-  final _duration = const Duration(milliseconds: 800);
+    with SingleTickerProviderStateMixin {
+  /// Whether the expanded "details" layout is shown.
+  bool _showDetails = false;
 
-  late final AnimationController _scaleImageController;
-  late final AnimationController _verticalLineAnimationController;
-  late final Animation<Offset> slideTowardsLeftAnimation;
-  late final Animation<Offset> slideTowardsRightAnimation;
-  late final Animation<Offset> scaleImageAnimation;
-  late final Animation<double> verticalLineAnimation;
-  late final Animation<double> _leftAnimation;
+  late final AnimationController _verticalLineController;
+  late final Animation<double> _verticalLineAnimation;
+
+  /// Labels that slide in from the right edge.
+  late final Animation<Offset> _slideInFromRight;
+
+  /// Labels that slide in from the left edge.
+  late final Animation<Offset> _slideInFromLeft;
 
   @override
   void initState() {
-    _scaleImageController = AnimationController(
+    super.initState();
+
+    _verticalLineController = AnimationController(
       vsync: this,
-      duration: _duration,
+      duration: _kAnimationDuration,
     );
-    _verticalLineAnimationController = AnimationController(
-      duration: _duration, // Adjust duration for speed
-      vsync: this,
-    );
-    slideTowardsLeftAnimation =
-        Tween<Offset>(
-          begin: const Offset(0.5, 0.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.otherAnimationsController,
-            curve: Curves.easeOutQuad,
-          ),
-        );
-    slideTowardsRightAnimation =
-        Tween<Offset>(
-          begin: const Offset(-0.5, 0.0),
-          end: const Offset(0.0, 0.0),
-        ).animate(
-          CurvedAnimation(
-            parent: widget.otherAnimationsController,
-            curve: Curves.easeOutQuad,
-          ),
-        );
-    verticalLineAnimation = CurvedAnimation(
-      parent: _verticalLineAnimationController,
+    _verticalLineAnimation = CurvedAnimation(
+      parent: _verticalLineController,
       curve: Curves.easeIn,
     );
-    _leftAnimation = Tween<double>(begin: 0, end: -20).animate(
+
+    _slideInFromRight = Tween<Offset>(
+      begin: const Offset(0.5, 0.0),
+      end: Offset.zero,
+    ).animate(
       CurvedAnimation(
-        parent: _verticalLineAnimationController,
-        curve: Curves.easeInOut,
+        parent: widget.otherAnimationsController,
+        curve: Curves.easeOutQuad,
       ),
     );
-    super.initState();
+    _slideInFromLeft = Tween<Offset>(
+      begin: const Offset(-0.5, 0.0),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(
+        parent: widget.otherAnimationsController,
+        curve: Curves.easeOutQuad,
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _verticalLineController.dispose();
+    super.dispose();
+  }
+
+  void _handleVerticalDragStart(DragStartDetails details) {
+    final deviceHeight = MediaQuery.of(context).size.height;
+    // The gesture origin (not its direction) decides the target layout, matching
+    // the original interaction: start the drag in the lower half to reveal the
+    // details view, in the upper half to collapse it.
+    _setDetailsVisible(details.globalPosition.dy > deviceHeight / 2);
+  }
+
+  void _setDetailsVisible(bool visible) {
+    if (_showDetails != visible) {
+      setState(() => _showDetails = visible);
+    }
+
+    if (visible) {
+      if (widget.vultureCircleAnimation.isForwardOrCompleted) {
+        widget.vultureCircleAnimationController.reverse();
+      }
+      if (!_verticalLineController.isForwardOrCompleted) {
+        _verticalLineController.forward();
+      }
+    } else {
+      if (!widget.vultureCircleAnimation.isForwardOrCompleted) {
+        widget.vultureCircleAnimationController.forward();
+      }
+      if (_verticalLineController.isForwardOrCompleted) {
+        _verticalLineController.reverse();
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final deviceWidth = MediaQuery.of(context).size.width;
-    final deviceHeight = MediaQuery.of(context).size.height;
+    final size = MediaQuery.of(context).size;
+    final deviceWidth = size.width;
+    final deviceHeight = size.height;
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-
-      // onVerticalDragUpdate: (details) {
-      onVerticalDragStart: (details) {
-        final dragPos = details.globalPosition.dy;
-        if (dragPos > deviceHeight * 0.5) {
-          // Dragging up
-          if (!showDetails) {
-            setState(() {
-              showDetails = true;
-            });
-          }
-
-          log('Dragging up -> $dragPos');
-          if (widget.vultureCircleAnimation.isForwardOrCompleted) {
-            widget.vultureCircleAnimationController.reverse();
-          }
-          if (!_verticalLineAnimationController.isForwardOrCompleted) {
-            _verticalLineAnimationController.forward();
-          }
-        } else {
-          if (showDetails) {
-            setState(() {
-              showDetails = false;
-            });
-          }
-          log('Dragging down -> $dragPos');
-          if (!widget.vultureCircleAnimation.isForwardOrCompleted) {
-            widget.vultureCircleAnimationController.forward();
-          }
-          if (_verticalLineAnimationController.isForwardOrCompleted) {
-            _verticalLineAnimationController.reverse();
-          }
-        }
-      },
+      onVerticalDragStart: _handleVerticalDragStart,
       child: Stack(
-        // alignment: Alignment.centerLeft,
         children: [
-          Positioned(
-            left: deviceWidth * 0.25,
-            top: deviceHeight * 0.15,
-            child: ScaleTransition(
-              scale: widget.vultureCircleAnimation,
-              child: Container(
-                height: 220,
-                width: 220,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color.fromARGB(255, 174, 173, 173),
-                ),
-              ),
-            ),
-          ),
-
-          AnimatedPositioned(
-            duration: _duration,
-            top: showDetails ? deviceHeight * 0.1 : deviceHeight * 0.1,
-
-            left: showDetails ? -20 : 0,
-
-            child: AnimatedScale(
-              scale: showDetails ? 0.9 : 1.0,
-              duration: _duration,
-              child: Image(
-                image: AssetImage('assets/images/vulture_.png'),
-                fit: BoxFit.contain,
-
-                width: deviceWidth * 0.8,
-                // width: deviceWidth * 0.75,
-                alignment: Alignment.center,
-              ),
-            ),
-          ),
-          AnimatedPositioned(
-            bottom: showDetails ? deviceHeight * 0.7 : 100,
-            left: 20,
-            right: 20,
-            duration: _duration,
-            curve: Curves.easeIn,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                SlideTransition(
-                  position: slideTowardsLeftAnimation,
-                  child: FadeTransition(
-                    opacity: widget.otherAnimationsController,
-                    child: Text(
-                      "Travel details",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-                Icon(Icons.keyboard_arrow_up, color: Colors.white, size: 24),
-              ],
-            ),
-          ),
-
-          Positioned(
-            bottom: 30,
-            left: 60,
-
-            child: SlideTransition(
-              position: slideTowardsRightAnimation,
-              child: FadeTransition(
-                opacity: widget.otherAnimationsController,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(
-                      "Start camp",
-                      style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 13),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      "02:40 pm",
-                      style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-
-          // if (showDetails)
-          Positioned(
-            bottom: 65,
-            left: 0,
-            right: 0,
-            top: deviceHeight * 0.12,
-            child: AnimatedBuilder(
-              animation: _verticalLineAnimationController,
-              builder: (context, child) {
-                if (_verticalLineAnimationController.value != 0) {
-                  return child!;
-                }
-                return SizedBox.shrink();
-              },
-              child: AnimatedVerticalLine(
-                // controller: _verticalLineAnimationController,
-                animation: verticalLineAnimation,
-              ),
-            ),
-          ),
-
-          // if (!showDetails)
-          Positioned(
-            bottom: 65,
-            left: 0,
-            right: 0,
-            child: AnimatedBuilder(
-              animation: _verticalLineAnimationController,
-              builder: (context, child) {
-                if (_verticalLineAnimationController.value == 0) {
-                  return child!;
-                }
-                return SizedBox.shrink();
-              },
-              child: TravelProgressDots(
-                controller: widget.vultureCircleAnimationController,
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 30,
-            left: 0,
-            right: 0,
-            child: Text(
-              "72 km",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          AnimatedPositioned(
-            bottom: showDetails ? deviceHeight * 0.62 : 30,
-
-            right: 50,
-            duration: _duration,
-            curve: Curves.easeIn,
-            child: SlideTransition(
-              position: slideTowardsLeftAnimation,
-              child: FadeTransition(
-                opacity: widget.otherAnimationsController,
-                child: Column(
-                  children: [
-                    Text(
-                      "Base camp",
-                      textAlign: TextAlign.end,
-                      style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 13),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      "07:30 am",
-                      textAlign: TextAlign.end,
-                      style: TextStyle(color: Color(0xFF9A9A9A), fontSize: 13),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          _buildCircleBackdrop(deviceWidth, deviceHeight),
+          _buildVultureImage(deviceWidth, deviceHeight),
+          _buildTravelDetailsBar(deviceHeight),
+          _buildStartCampInfo(),
+          _buildVerticalTimeline(deviceHeight),
+          _buildProgressDots(),
+          _buildDistanceLabel(),
+          _buildBaseCampInfo(deviceHeight),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCircleBackdrop(double width, double height) {
+    return Positioned(
+      left: width * 0.25,
+      top: height * 0.15,
+      child: ScaleTransition(
+        scale: widget.vultureCircleAnimation,
+        child: Container(
+          height: 220,
+          width: 220,
+          decoration: const BoxDecoration(
+            shape: BoxShape.circle,
+            color: _kCircleColor,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVultureImage(double width, double height) {
+    return AnimatedPositioned(
+      duration: _kAnimationDuration,
+      top: height * 0.1,
+      left: _showDetails ? -20 : 0,
+      child: AnimatedScale(
+        scale: _showDetails ? 0.9 : 1.0,
+        duration: _kAnimationDuration,
+        child: Image.asset(
+          'assets/images/vulture_.png',
+          fit: BoxFit.contain,
+          width: width * 0.8,
+          alignment: Alignment.center,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTravelDetailsBar(double height) {
+    return AnimatedPositioned(
+      duration: _kAnimationDuration,
+      curve: Curves.easeIn,
+      bottom: _showDetails ? height * 0.7 : 100,
+      left: 20,
+      right: 20,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          SlideTransition(
+            position: _slideInFromRight,
+            child: FadeTransition(
+              opacity: widget.otherAnimationsController,
+              child: const Text("Travel details", style: _kSectionTitleStyle),
+            ),
+          ),
+          const Icon(Icons.keyboard_arrow_up, color: Colors.white, size: 24),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStartCampInfo() {
+    return Positioned(
+      bottom: 30,
+      left: 60,
+      child: SlideTransition(
+        position: _slideInFromLeft,
+        child: FadeTransition(
+          opacity: widget.otherAnimationsController,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: const [
+              Text("Start camp", style: _kCampInfoStyle),
+              SizedBox(height: 12),
+              Text("02:40 pm", style: _kCampInfoStyle),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerticalTimeline(double height) {
+    return Positioned(
+      top: height * 0.12,
+      bottom: 65,
+      left: 0,
+      right: 0,
+      child: AnimatedBuilder(
+        animation: _verticalLineController,
+        // Only mount the timeline once the line animation has started.
+        builder: (context, child) => _verticalLineController.value != 0
+            ? child!
+            : const SizedBox.shrink(),
+        child: AnimatedVerticalLine(animation: _verticalLineAnimation),
+      ),
+    );
+  }
+
+  Widget _buildProgressDots() {
+    return Positioned(
+      bottom: 65,
+      left: 0,
+      right: 0,
+      child: AnimatedBuilder(
+        animation: _verticalLineController,
+        // Collapsed dots show only while the timeline is fully retracted.
+        builder: (context, child) => _verticalLineController.value == 0
+            ? child!
+            : const SizedBox.shrink(),
+        child: TravelProgressDots(
+          controller: widget.vultureCircleAnimationController,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDistanceLabel() {
+    return const Positioned(
+      bottom: 30,
+      left: 0,
+      right: 0,
+      child: Text("72 km", textAlign: TextAlign.center, style: _kDistanceStyle),
+    );
+  }
+
+  Widget _buildBaseCampInfo(double height) {
+    return AnimatedPositioned(
+      duration: _kAnimationDuration,
+      curve: Curves.easeIn,
+      bottom: _showDetails ? height * 0.62 : 30,
+      right: 50,
+      child: SlideTransition(
+        position: _slideInFromRight,
+        child: FadeTransition(
+          opacity: widget.otherAnimationsController,
+          child: Column(
+            children: const [
+              Text("Base camp", textAlign: TextAlign.end, style: _kCampInfoStyle),
+              SizedBox(height: 12),
+              Text("07:30 am", textAlign: TextAlign.end, style: _kCampInfoStyle),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
+/// Animated row of dots shown while the timeline is collapsed: an outlined
+/// start node, two middle dots that fade and widen, and a filled end node.
 class TravelProgressDots extends StatefulWidget {
   final AnimationController controller;
+
   const TravelProgressDots({super.key, required this.controller});
 
   @override
@@ -306,6 +311,10 @@ class TravelProgressDots extends StatefulWidget {
 }
 
 class _TravelProgressDotsState extends State<TravelProgressDots> {
+  static const double _dotSize = 5;
+  static const double _bigDotSize = 10;
+  static const double _gap = 5;
+
   late final Animation<double> _dotsOpacity;
   late final Animation<double> _slideProgress;
 
@@ -313,7 +322,7 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
   void initState() {
     super.initState();
 
-    // Dots fade in during first 60% of animation
+    // Dots fade in during the first 60% of the animation.
     _dotsOpacity = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: widget.controller,
@@ -321,7 +330,8 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
       ),
     );
 
-    // White dot slides right across full animation
+    // The middle section widens (and the white dot slides right) across the
+    // full animation.
     _slideProgress = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(
         parent: widget.controller,
@@ -332,33 +342,18 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
 
   @override
   Widget build(BuildContext context) {
-    // Total width: 10 + 5 + (5+5) + (5+5) + 10 = ~45px collapsed, ~65px expanded
-    const double dotSize = 5;
-    const double bigDotSize = 10;
-    const double gap = 5;
-
     return AnimatedBuilder(
       animation: widget.controller,
       builder: (context, _) {
-        // Width that the middle dots occupy (slides open)
-        final double middleWidth = _slideProgress.value * ((dotSize + gap) * 2);
+        final double middleWidth = _slideProgress.value * (_dotSize + _gap) * 2;
+        final double middleDotSize = middleWidth / 4;
 
         return Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Outline circle (start)
-            Container(
-              width: bigDotSize,
-              height: bigDotSize,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: const Color(0xFF9A9A9A), width: 1.5),
-              ),
-            ),
-            SizedBox(width: gap),
-
-            // Middle dots — expand in width + fade
+            _buildOutlinedDot(),
+            const SizedBox(width: _gap),
             SizedBox(
               width: middleWidth,
               child: Opacity(
@@ -368,12 +363,12 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
                   children: List.generate(
                     2,
                     (_) => Padding(
-                      padding: EdgeInsets.only(right: middleWidth / 4),
+                      padding: EdgeInsets.only(right: middleDotSize),
                       child: Container(
-                        width: middleWidth / 4,
-                        height: middleWidth / 4,
+                        width: middleDotSize,
+                        height: middleDotSize,
                         decoration: const BoxDecoration(
-                          color: Color(0xFF9A9A9A),
+                          color: _kMutedGrey,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -382,85 +377,66 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
                 ),
               ),
             ),
-
-            // Filled white circle (end) — slides right as middle expands
-            Container(
-              width: bigDotSize,
-              height: bigDotSize,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
+            _buildFilledDot(),
           ],
         );
       },
     );
   }
-}
 
-class AnimatedVerticalLine extends StatefulWidget {
-  // final AnimationController controller;
-  final Animation<double> animation;
-  const AnimatedVerticalLine({
-    super.key,
-    // required this.controller,
-    required this.animation,
-  });
-
-  @override
-  State<AnimatedVerticalLine> createState() => _AnimatedVerticalLineState();
-}
-
-class _AnimatedVerticalLineState extends State<AnimatedVerticalLine>
-    with SingleTickerProviderStateMixin {
-  // late AnimationController _controller;
-  late Animation<double> _animation;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // _controller = widget.controller;
-
-    _animation = widget.animation;
-    //  CurvedAnimation(
-    //   parent: _controller,
-    //   curve: Curves.easeOutCubic,
-    // );
+  Widget _buildOutlinedDot() {
+    return Container(
+      width: _bigDotSize,
+      height: _bigDotSize,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(color: _kMutedGrey, width: 1.5),
+      ),
+    );
   }
 
-  @override
-  void dispose() {
-    // _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant AnimatedVerticalLine oldWidget) {
-    _animation = widget.animation;
-    super.didUpdateWidget(oldWidget);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _animation,
-      builder: (context, child) {
-        return CustomPaint(
-          // Define the size of the canvas area for the line
-          size: const Size(40, 400),
-          painter: LinePainter(progress: _animation.value),
-        );
-      },
+  Widget _buildFilledDot() {
+    return Container(
+      width: _bigDotSize,
+      height: _bigDotSize,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
     );
   }
 }
 
-class LinePainter extends CustomPainter {
-  final double progress; // Ranges from 0.0 to 1.0
+/// Vertical timeline whose line grows upward and reveals nodes as it passes
+/// them, driven by [animation].
+class AnimatedVerticalLine extends StatelessWidget {
+  final Animation<double> animation;
 
-  LinePainter({required this.progress});
+  const AnimatedVerticalLine({super.key, required this.animation});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (context, _) => CustomPaint(
+        size: const Size(40, 400),
+        painter: LinePainter(progress: animation.value),
+      ),
+    );
+  }
+}
+
+/// Paints a bottom-to-top growing line with progress nodes.
+class LinePainter extends CustomPainter {
+  /// Line growth progress, from 0.0 (collapsed) to 1.0 (fully drawn).
+  final double progress;
+
+  const LinePainter({required this.progress});
+
+  /// Node positions along the line (0.0 at bottom, 1.0 at top).
+  static const List<double> _nodeTargets = [0.0, 0.3, 0.6, 1.0];
+  static const double _nodeRadius = 4;
+  static const double _ringRadius = 6;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -473,52 +449,39 @@ class LinePainter extends CustomPainter {
       ..color = Colors.white
       ..style = PaintingStyle.fill;
 
-    // Define coordinates going from bottom to top
-    final double startX = size.width / 2;
-    final double startY = size.height; // Bottom of the canvas
-    final double endY = 0; // Top of the canvas
+    final ringPaint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
 
-    // Total distance to travel
-    final double totalHeight = startY - endY;
+    final double centerX = size.width / 2;
+    final double startY = size.height; // Bottom of the canvas.
+    final double currentY = startY - (startY * progress);
 
-    // Current tip of the line as it moves upwards
-    final double currentY = startY - (totalHeight * progress);
-
-    // Draw the main animating line
+    // Draw the line as it grows from the bottom toward the top.
     canvas.drawLine(
-      Offset(startX, startY),
-      Offset(startX, currentY),
+      Offset(centerX, startY),
+      Offset(centerX, currentY),
       linePaint,
     );
 
-    // List of key node positions relative to progress (0.0 at bottom, 1.0 at top)
-    // Adjust these percentages to match where you want your nodes to sit
-    final List<double> nodeTargets = [0.0, 0.3, 0.6, 1.0];
+    for (final target in _nodeTargets) {
+      // Reveal a node only once the line has reached it.
+      if (progress < target) continue;
 
-    for (var target in nodeTargets) {
-      // Only draw the node if the line animation has reached or passed it
-      if (progress >= target) {
-        double nodeY = startY - (totalHeight * target);
+      final double nodeY = startY - (startY * target);
+      canvas.drawCircle(Offset(centerX, nodeY), _nodeRadius, dotPaint);
 
-        // Custom styling for specific nodes to match your UI
-        if (target == 0.0 || target == 1.0) {
-          // Hollow circle or specific style for ends
-          canvas.drawCircle(Offset(startX, nodeY), 4, dotPaint);
-        } else {
-          // Inner dot with an outer ring style
-          canvas.drawCircle(Offset(startX, nodeY), 4, dotPaint);
-          canvas.drawCircle(
-            Offset(startX, nodeY),
-            6,
-            linePaint..strokeWidth = 1.5,
-          );
-        }
+      final bool isEndpoint =
+          target == _nodeTargets.first || target == _nodeTargets.last;
+      if (!isEndpoint) {
+        // Intermediate nodes get an outer ring.
+        canvas.drawCircle(Offset(centerX, nodeY), _ringRadius, ringPaint);
       }
     }
   }
 
   @override
-  bool shouldRepaint(covariant LinePainter oldDelegate) {
-    return oldDelegate.progress != progress;
-  }
+  bool shouldRepaint(covariant LinePainter oldDelegate) =>
+      oldDelegate.progress != progress;
 }

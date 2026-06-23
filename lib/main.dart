@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:travel_app_design/leopard_page.dart';
 import 'package:travel_app_design/vulture_page.dart';
@@ -45,11 +43,9 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
   late final Animation<double> vultureCircleAnimation;
 
   bool circleAnimationForwaded = false;
-  late final ValueNotifier<bool> dragNotifier;
   @override
   void initState() {
     super.initState();
-    dragNotifier = ValueNotifier(false);
     vultureCircleAnimationController = AnimationController(
       duration: _duration,
       vsync: this,
@@ -122,12 +118,10 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
                 children: [
                   LeopardPage(),
                   VulturePage(
-                    // animation: vultureCircleAnimation,
                     otherAnimationsController: otherAnimationsController,
                     vultureCircleAnimationController:
                         vultureCircleAnimationController,
                     vultureCircleAnimation: vultureCircleAnimation,
-                    dragNotifier: dragNotifier,
                   ),
                 ],
               ),
