@@ -1,3 +1,5 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
 import 'package:travel_app_design/leopard_page.dart';
 import 'package:travel_app_design/vulture_page.dart';
@@ -39,8 +41,10 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
   final _duration = const Duration(milliseconds: 800);
   final _curve = Curves.easeOut;
   late final AnimationController vultureCircleAnimationController;
+  late final AnimationController leopardBgSlideAnimationController;
   late final AnimationController otherAnimationsController;
   late final Animation<double> vultureCircleAnimation;
+  late final Animation<double> leopardBgSlideAnimation;
 
   bool circleAnimationForwaded = false;
   @override
@@ -59,14 +63,28 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
       curve: _curve,
     );
 
-    // _pageController = PageController(viewportFraction: 0.9)
+    leopardBgSlideAnimationController = AnimationController(
+      // duration: const Duration(milliseconds: 500),
+      duration: _duration,
+      vsync: this,
+    );
+    leopardBgSlideAnimation = CurvedAnimation(
+      parent: leopardBgSlideAnimationController,
+      curve: Curves.linear,
+    );
+
     _pageController = PageController(viewportFraction: 1.0)
       ..addListener(() {
-        // if (_pageController.page! >= 0.8 && !circleAnimationForwaded) {
-        if (_pageController.page! >= 0.5 && !circleAnimationForwaded) {
+        if (_pageController.page! >= 0.7 && !circleAnimationForwaded) {
           circleAnimationForwaded = true;
           vultureCircleAnimationController.forward();
           otherAnimationsController.forward();
+        }
+
+        if (_pageController.page! > 0.0 &&
+            !leopardBgSlideAnimationController.isAnimating &&
+            !leopardBgSlideAnimationController.isForwardOrCompleted) {
+          leopardBgSlideAnimationController.repeat(count: 1);
         }
       });
   }
@@ -116,7 +134,7 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
                 }),
                 controller: _pageController,
                 children: [
-                  LeopardPage(),
+                  LeopardPage(controller: leopardBgSlideAnimationController),
                   VulturePage(
                     otherAnimationsController: otherAnimationsController,
                     vultureCircleAnimationController:
