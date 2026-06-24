@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:travel_app_design/travel_progress_dots.dart';
 
 /// Shared animation timing for the vulture screen widgets.
 const Duration _kAnimationDuration = Duration(milliseconds: 800);
@@ -46,12 +47,13 @@ class VulturePage extends StatefulWidget {
 
   /// Drives the slide + fade of the supporting labels; owned by the parent.
   final AnimationController otherAnimationsController;
-
+  
   const VulturePage({
     super.key,
     required this.vultureCircleAnimationController,
     required this.vultureCircleAnimation,
     required this.otherAnimationsController,
+    
   });
 
   @override
@@ -153,23 +155,27 @@ class _VulturePageState extends State<VulturePage>
   }
 
   void _setDetailsVisible(bool visible) {
-    if (_showDetails != visible) {
-      setState(() => _showDetails = visible);
-    }
-
+    //make details visible
     if (visible) {
       if (widget.vultureCircleAnimation.isForwardOrCompleted) {
-        widget.vultureCircleAnimationController.reverse();
+        widget.vultureCircleAnimationController.reverse().then((_) {
+          _verticalLineController.forward();
+          if (_showDetails != visible) {
+            setState(() => _showDetails = visible);
+          }
+        });
       }
-      if (!_verticalLineController.isForwardOrCompleted) {
-        _verticalLineController.forward();
-      }
+
+      //hide details
     } else {
-      if (!widget.vultureCircleAnimation.isForwardOrCompleted) {
-        widget.vultureCircleAnimationController.forward();
+      if (_showDetails != visible) {
+        setState(() => _showDetails = visible);
       }
+
       if (_verticalLineController.isForwardOrCompleted) {
-        _verticalLineController.reverse();
+        _verticalLineController.reverse().then(
+          (_) => widget.vultureCircleAnimationController.forward(),
+        );
       }
     }
   }
@@ -183,6 +189,7 @@ class _VulturePageState extends State<VulturePage>
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onVerticalDragStart: _handleVerticalDragStart,
+      // onVerticalDragUpdate: _handleVerticalDragUpdate,
       child: Stack(
         children: [
           _buildCircleBackdrop(deviceWidth, deviceHeight),
@@ -195,6 +202,7 @@ class _VulturePageState extends State<VulturePage>
           _buildProgressDots(),
           _buildDistanceLabel(),
           _buildBaseCampInfo(deviceHeight),
+          
         ],
       ),
     );
@@ -313,7 +321,7 @@ class _VulturePageState extends State<VulturePage>
       top: height * 0.12,
       bottom: 65,
       left: 0,
-      right: 0,
+      right: -15,
       child: AnimatedBuilder(
         animation: _verticalLineController,
         // Only mount the timeline once the line animation has started.
@@ -438,15 +446,16 @@ class _VulturePageState extends State<VulturePage>
 
   Widget _buildProgressDots() {
     return Positioned(
-      bottom: 65,
+      bottom: 60,
       left: 0,
       right: 0,
       child: AnimatedBuilder(
         animation: _verticalLineController,
         // Collapsed dots show only while the timeline is fully retracted.
-        builder: (context, child) => _verticalLineController.value == 0
-            ? child!
-            : const SizedBox.shrink(),
+        // builder: (context, child) => _verticalLineController.value == 0
+        //     ? child!
+        //     : const SizedBox.shrink(),
+        builder: (context, child) => child!,
         child: TravelProgressDots(
           controller: widget.vultureCircleAnimationController,
         ),
@@ -494,114 +503,6 @@ class _VulturePageState extends State<VulturePage>
   }
 }
 
-/// Animated row of dots shown while the timeline is collapsed: an outlined
-/// start node, two middle dots that fade and widen, and a filled end node.
-class TravelProgressDots extends StatefulWidget {
-  final AnimationController controller;
-
-  const TravelProgressDots({super.key, required this.controller});
-
-  @override
-  State<TravelProgressDots> createState() => _TravelProgressDotsState();
-}
-
-class _TravelProgressDotsState extends State<TravelProgressDots> {
-  static const double _dotSize = 5;
-  static const double _bigDotSize = 10;
-  static const double _gap = 5;
-
-  late final Animation<double> _dotsOpacity;
-  late final Animation<double> _slideProgress;
-
-  @override
-  void initState() {
-    super.initState();
-
-    // Dots fade in during the first 60% of the animation.
-    _dotsOpacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: widget.controller,
-        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
-      ),
-    );
-
-    // The middle section widens (and the white dot slides right) across the
-    // full animation.
-    _slideProgress = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: widget.controller,
-        curve: const Interval(0.0, 1.0, curve: Curves.easeInOut),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: widget.controller,
-      builder: (context, _) {
-        final double middleWidth = _slideProgress.value * (_dotSize + _gap) * 2;
-        final double middleDotSize = middleWidth / 4;
-
-        return Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildOutlinedDot(),
-            const SizedBox(width: _gap),
-            SizedBox(
-              width: middleWidth,
-              child: Opacity(
-                opacity: _dotsOpacity.value,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: List.generate(
-                    2,
-                    (_) => Padding(
-                      padding: EdgeInsets.only(right: middleDotSize),
-                      child: Container(
-                        width: middleDotSize,
-                        height: middleDotSize,
-                        decoration: const BoxDecoration(
-                          color: _kMutedGrey,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            _buildFilledDot(),
-          ],
-        );
-      },
-    );
-  }
-
-  Widget _buildOutlinedDot() {
-    return Container(
-      width: _bigDotSize,
-      height: _bigDotSize,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: _kMutedGrey, width: 1.5),
-      ),
-    );
-  }
-
-  Widget _buildFilledDot() {
-    return Container(
-      width: _bigDotSize,
-      height: _bigDotSize,
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        shape: BoxShape.circle,
-      ),
-    );
-  }
-}
-
 /// Vertical timeline whose line grows upward and reveals nodes as it passes
 /// them, driven by [animation].
 class AnimatedVerticalLine extends StatelessWidget {
@@ -619,64 +520,4 @@ class AnimatedVerticalLine extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Paints a bottom-to-top growing line with progress nodes.
-class LinePainter extends CustomPainter {
-  /// Line growth progress, from 0.0 (collapsed) to 1.0 (fully drawn).
-  final double progress;
-
-  const LinePainter({required this.progress});
-
-  /// Node positions along the line (0.0 at bottom, 1.0 at top).
-  static const List<double> _nodeTargets = [0.0, 0.3, 0.6, 1.0];
-  static const double _nodeRadius = 4;
-  static const double _ringRadius = 6;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-
-    final dotPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    final ringPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    final double centerX = size.width / 2;
-    final double startY = size.height; // Bottom of the canvas.
-    final double currentY = startY - (startY * progress);
-
-    // Draw the line as it grows from the bottom toward the top.
-    canvas.drawLine(
-      Offset(centerX, startY),
-      Offset(centerX, currentY),
-      linePaint,
-    );
-
-    for (final target in _nodeTargets) {
-      // Reveal a node only once the line has reached it.
-      if (progress < target) continue;
-
-      final double nodeY = startY - (startY * target);
-      canvas.drawCircle(Offset(centerX, nodeY), _nodeRadius, dotPaint);
-
-      final bool isEndpoint =
-          target == _nodeTargets.first || target == _nodeTargets.last;
-      if (!isEndpoint) {
-        // Intermediate nodes get an outer ring.
-        canvas.drawCircle(Offset(centerX, nodeY), _ringRadius, ringPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant LinePainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }

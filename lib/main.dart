@@ -36,7 +36,7 @@ class AnimatedHorizontalPages extends StatefulWidget {
 class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
     with TickerProviderStateMixin {
   late PageController _pageController;
-  bool showOnMapOption = false;
+  // bool showOnMapOption = false;
   int _currentPage = 0;
   final _duration = const Duration(milliseconds: 800);
   final _curve = Curves.easeOut;
@@ -47,6 +47,7 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
   late final Animation<double> leopardBgSlideAnimation;
 
   bool circleAnimationForwaded = false;
+  bool showMap = false;
   @override
   void initState() {
     super.initState();
@@ -61,11 +62,11 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
     vultureCircleAnimation = CurvedAnimation(
       parent: vultureCircleAnimationController,
       curve: _curve,
+      // reverseCurve: _curve.flipped,
     );
 
     leopardBgSlideAnimationController = AnimationController(
-      // duration: const Duration(milliseconds: 500),
-      duration: _duration,
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     leopardBgSlideAnimation = CurvedAnimation(
@@ -140,6 +141,7 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
                     vultureCircleAnimationController:
                         vultureCircleAnimationController,
                     vultureCircleAnimation: vultureCircleAnimation,
+                    
                   ),
                 ],
               ),
@@ -167,15 +169,19 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
                         ),
                         child: _currentPage == 1
                             ? FadeTransition(
-                                opacity: vultureCircleAnimation,
-                                child: Text(
-                                  "ON MAP",
-                                  style: TextStyle(
-                                    color: const Color.fromARGB(
-                                      255,
-                                      67,
-                                      73,
-                                      166,
+                                opacity: otherAnimationsController,
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      setState(() => showMap = !showMap),
+                                  child: Text(
+                                    "ON MAP",
+                                    style: TextStyle(
+                                      color: const Color.fromARGB(
+                                        255,
+                                        67,
+                                        73,
+                                        166,
+                                      ),
                                     ),
                                   ),
                                 ),
