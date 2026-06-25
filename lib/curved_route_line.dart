@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-// /// Palette for the trek route overlay.
 const Color _kRouteColor = Colors.white;
 const Color _kRingFill = Color(0x55000000);
 const Color _kRouteShadow = Color(0x66000000);
@@ -12,40 +11,30 @@ const TextStyle _kRouteLabelStyle = TextStyle(
   letterSpacing: 0.2,
 );
 
-// /// A stop along the route that carries a node + caption.
+// A stop on the route: a node plus its caption.
 class _RouteNode {
   const _RouteNode({
     required this.point,
     required this.label,
     this.side = _LabelSide.right,
     this.filled = false,
-    this.icon,
     this.straightReveal = 0.0,
   });
 
-  /// Index into [_kRoutePoints] where this node sits.
-  final int point;
+  final int point; // index into _kRoutePoints
   final String label;
   final _LabelSide side;
+  final bool filled; // filled dot (camp) vs. outlined ring (sighting)
 
-  /// Filled white dot (camps) vs. outlined ring (wildlife sightings).
-  final bool filled;
-
-  /// Optional glyph drawn above the node (e.g. the leopard icon).
-  final IconData? icon;
-
-  /// Progress (0..1) at which this node is revealed while the line is still a
-  /// straight vertical timeline; matches the collapsed-timeline node heights.
-  /// The reveal point slides toward the route's arc-length fraction as the line
-  /// bends (see [_MorphingRoutePainter]).
+  // Progress at which the node reveals on the straight timeline; slides toward
+  // the route's arc-length fraction as the line bends.
   final double straightReveal;
 }
 
 enum _LabelSide { left, right }
 
-// /// Route control points, ordered from the bottom (start) to the top (end).
-// /// Traced from the reference image; intermediate points (no node) only shape
-// /// the switchbacks and bulges of the trail.
+// Route control points, bottom (start) → top (end). Traced from the reference;
+// the in-between points just shape the switchbacks.
 const List<Offset> _kRoutePoints = [
   Offset(0.497, 0.999), // 0  Start camp
   Offset(0.445, 0.898),
@@ -70,18 +59,13 @@ const List<_RouteNode> _kRouteNodes = [
     point: 10,
     label: 'Leopards',
     side: _LabelSide.left,
-
     straightReveal: 0.6,
   ),
   _RouteNode(point: 13, label: 'Base camp', filled: true, straightReveal: 1.0),
 ];
 
-// /// Straight-line counterparts to [_kRoutePoints]: a centred vertical column,
-// /// ordered bottom → top with point indices lined up 1:1 with [_kRoutePoints] so
-// /// each control point can be blended to its route position. The node indices
-// /// (0, 7, 10, 13) are placed at the same heights the collapsed timeline used
-// /// (fractions 0, 0.3, 0.6, 1 from the bottom) so the captions stay anchored
-// /// while the line bends.
+// Straight-line counterparts to _kRoutePoints, lined up 1:1 so each point can
+// be blended to its route position. Node heights match the collapsed timeline.
 const List<Offset> _kStraightPoints = [
   Offset(0.5, 1.000), // 0  Start camp (bottom)
   Offset(0.5, 0.957),
@@ -99,8 +83,7 @@ const List<Offset> _kStraightPoints = [
   Offset(0.5, 0.000), // 13 Base camp (top)
 ];
 
-// /// Catmull-Rom spline through [points] emitted as cubic beziers so the line
-// /// flows smoothly through every traced point.
+// Catmull-Rom spline through [points], emitted as cubic beziers.
 Path _smoothPath(List<Offset> points) {
   final path = Path()..moveTo(points.first.dx, points.first.dy);
   for (int i = 0; i < points.length - 1; i++) {
@@ -116,13 +99,16 @@ Path _smoothPath(List<Offset> points) {
   return path;
 }
 
-// /// Returns the leading [fraction] (0..1) of [path] by arc length.
+// Leading [fraction] (0..1) of [path] by arc length.
 Path _trimPath(Path path, double fraction) {
   if (fraction >= 1.0) return path;
+  // computeMetrics() is pricey, so walk it once.
+  final metrics = path.computeMetrics().toList();
+  final double totalLength = metrics.fold(0.0, (sum, m) => sum + m.length);
+  double remaining = totalLength * fraction;
+
   final result = Path();
-  double remaining =
-      path.computeMetrics().fold(0.0, (sum, m) => sum + m.length) * fraction;
-  for (final metric in path.computeMetrics()) {
+  for (final metric in metrics) {
     if (remaining <= 0) break;
     final double take = remaining.clamp(0.0, metric.length);
     result.addPath(metric.extractPath(0, take), Offset.zero);
@@ -131,8 +117,6 @@ Path _trimPath(Path path, double fraction) {
   return result;
 }
 
-/// Rebuilds the morphing route as either animation ticks. [drawOn] grows the
-/// line on from the bottom; [morph] bends the straight timeline into the route.
 class AnimatedMorphingRouteLine extends StatelessWidget {
   const AnimatedMorphingRouteLine({
     super.key,
@@ -140,11 +124,8 @@ class AnimatedMorphingRouteLine extends StatelessWidget {
     required this.morph,
   });
 
-  /// Draw-on progress for the line (0 collapsed → 1 fully drawn).
-  final Animation<double> drawOn;
-
-  /// Shape blend (0 straight vertical line → 1 curved route).
-  final Animation<double> morph;
+  final Animation<double> drawOn; // grows the line on from the bottom
+  final Animation<double> morph; // 0 straight line → 1 curved route
 
   @override
   Widget build(BuildContext context) {
@@ -161,30 +142,23 @@ class AnimatedMorphingRouteLine extends StatelessWidget {
   }
 }
 
-/// Paints the route at any blend between a straight vertical line ([morph] = 0)
-/// and the full winding trek route ([morph] = 1), grown on from the bottom by
-/// [progress]. Driving [morph] 0→1 makes the straight timeline appear to bend
-/// into the route; the node captions and leopard glyph fade in as it curves.
+// Paints the route at any blend between a straight line (morph 0) and the full
+// trek route (morph 1), grown on from the bottom by [progress].
 class _MorphingRoutePainter extends CustomPainter {
   const _MorphingRoutePainter({required this.progress, required this.morph});
 
-  /// Draw-on growth from the bottom, 0.0 → 1.0.
   final double progress;
-
-  /// Shape blend: 0.0 straight vertical line, 1.0 curved route.
   final double morph;
 
   static const double _dotRadius = 4.5;
   static const double _ringRadius = 5.5;
   static const double _labelGap = 16;
-  static const double _iconSize = 26;
 
   @override
   void paint(Canvas canvas, Size size) {
     final double m = morph.clamp(0.0, 1.0);
 
-    // Blend each control point from its straight position to its route
-    // position, then project the normalized point into pixels.
+    // Blend each control point straight → route, then project into pixels.
     final points = <Offset>[];
     for (int i = 0; i < _kRoutePoints.length; i++) {
       final n = Offset.lerp(_kStraightPoints[i], _kRoutePoints[i], m)!;
@@ -211,21 +185,17 @@ class _MorphingRoutePainter extends CustomPainter {
     canvas.drawPath(shownPath, linePaint);
 
     for (final node in _kRouteNodes) {
-      // The reveal point slides from its straight fraction to the route's
-      // arc-length fraction as the line curves.
+      // Reveal point slides from the straight fraction to the arc-length one.
       final double curveFraction = node.point / (_kRoutePoints.length - 1);
       final double revealFraction =
           node.straightReveal + (curveFraction - node.straightReveal) * m;
       if (progress < revealFraction) continue;
-      // The dot/ring shows on the straight timeline too; the caption only
-      // fades in as the line bends into the route.
       _paintNode(canvas, points[node.point], node, m);
     }
   }
 
-  /// [labelOpacity] fades the caption + glyph in as the line curves; the node
-  /// dot/ring stays opaque since it exists in both the straight and curved
-  /// states.
+  // [labelOpacity] fades the caption in as the line curves; the dot/ring stays
+  // opaque since it exists in both states.
   void _paintNode(
     Canvas canvas,
     Offset p,
@@ -236,12 +206,8 @@ class _MorphingRoutePainter extends CustomPainter {
       ..color = _kRouteColor
       ..style = PaintingStyle.fill;
 
-    if (node.icon != null && labelOpacity > 0) {
-      _paintIcon(canvas, node.icon!, p, labelOpacity);
-    }
-
     if (node.filled) {
-      // Camp: small dark halo + filled white dot.
+      // Camp: dark halo + filled dot.
       canvas.drawCircle(p, _dotRadius + 1.5, Paint()..color = _kRingFill);
       canvas.drawCircle(p, _dotRadius, dotPaint);
     } else {
@@ -279,22 +245,6 @@ class _MorphingRoutePainter extends CustomPainter {
         ? p.dx + _labelGap
         : p.dx - _labelGap - tp.width;
     tp.paint(canvas, Offset(dx, dy));
-  }
-
-  void _paintIcon(Canvas canvas, IconData icon, Offset p, double opacity) {
-    final tp = TextPainter(
-      text: TextSpan(
-        text: String.fromCharCode(icon.codePoint),
-        style: TextStyle(
-          fontSize: _iconSize,
-          fontFamily: icon.fontFamily,
-          package: icon.fontPackage,
-          color: _kRouteColor.withValues(alpha: opacity),
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-    )..layout();
-    tp.paint(canvas, Offset(p.dx - tp.width - 6, p.dy - tp.height - 8));
   }
 
   @override

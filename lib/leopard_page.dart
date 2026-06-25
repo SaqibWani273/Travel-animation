@@ -1,35 +1,28 @@
-import 'dart:developer';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-class LeopardPage extends StatefulWidget {
-  final AnimationController controller;
+// First hero page. [controller] is owned by the parent pager and slides the
+// background "72" in as the page scrolls into view.
+class LeopardPage extends StatelessWidget {
   const LeopardPage({super.key, required this.controller});
 
-  @override
-  State<LeopardPage> createState() => _LeopardPageState();
-}
-
-class _LeopardPageState extends State<LeopardPage>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = widget.controller;
+  final AnimationController controller;
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final screenHeight = MediaQuery.of(context).size.height;
+    final size = MediaQuery.of(context).size;
 
     return AnimatedBuilder(
-      animation: _controller,
+      animation: controller,
       builder: (context, child) => Stack(
         alignment: Alignment.centerLeft,
         children: [
           Positioned(
-            top: screenHeight * 0.18,
-            left: -(screenWidth * 0.25 + (_controller.value * 200)),
-
+            top: size.height * 0.18,
+            left: -(size.width * 0.25 + controller.value * 200),
             child: Transform.rotate(
-              angle: 3.14 / 2,
+              angle: math.pi / 2,
               alignment: Alignment.center,
               child: const Text(
                 "72",
@@ -43,17 +36,15 @@ class _LeopardPageState extends State<LeopardPage>
               ),
             ),
           ),
-
           // ── Leopard image ────────────────────────────────────────────
           Positioned(
             left: 15,
-
             right: 0,
-            top: screenHeight * 0.25,
+            top: size.height * 0.25,
             child: Image.asset(
-              width: screenWidth * 0.8,
-              height: screenWidth * 0.7,
               "assets/images/leopard_black_n_white-1.png",
+              width: size.width * 0.8,
+              height: size.width * 0.7,
               fit: BoxFit.contain,
             ),
           ),
@@ -68,12 +59,11 @@ class LeopardPageDescription extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      // crossAxisAlignment: CrossAxisAlignment.start,
+    return const Column(
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: const [
+          children: [
             Text(
               "Travel description",
               style: TextStyle(
@@ -85,11 +75,10 @@ class LeopardPageDescription extends StatelessWidget {
             Icon(Icons.keyboard_arrow_up, color: Colors.white, size: 24),
           ],
         ),
-
-        const SizedBox(height: 32),
+        SizedBox(height: 32),
         SizedBox(
           width: double.infinity,
-          child: const Text(
+          child: Text(
             "The leopard is distinguished by its well-camouflaged fur, opportunistic hunting behaviour, broad diet, and strength.",
             style: TextStyle(
               color: Color(0xFFAAAAAA),
@@ -98,7 +87,7 @@ class LeopardPageDescription extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 32),
+        SizedBox(height: 32),
       ],
     );
   }

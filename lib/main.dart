@@ -1,5 +1,3 @@
-import 'dart:developer';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:travel_app_design/leopard_page.dart';
@@ -21,15 +19,16 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      // home: const LeopardPage(),
       home: ChangeNotifierProvider(
-        create: (context) => TravelProvider(),
+        create: (_) => TravelProvider(),
         child: const AnimatedHorizontalPages(),
       ),
     );
   }
 }
 
+// Two horizontal hero pages (leopard → vulture). The swipe offset drives the
+// reveal controllers below so the next page animates in mid-drag.
 class AnimatedHorizontalPages extends StatefulWidget {
   const AnimatedHorizontalPages({super.key});
 
@@ -40,64 +39,76 @@ class AnimatedHorizontalPages extends StatefulWidget {
 
 class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
     with TickerProviderStateMixin {
-  late PageController _pageController;
-  // bool showOnMapOption = false;
-  int _currentPage = 0;
-  final _duration = const Duration(milliseconds: 800);
-  final _curve = Curves.easeOut;
-  late final AnimationController vultureCircleAnimationController;
-  late final AnimationController leopardBgSlideAnimationController;
-  late final AnimationController otherAnimationsController;
-  late final Animation<double> vultureCircleAnimation;
-  late final Animation<double> leopardBgSlideAnimation;
+  static const Duration _revealDuration = Duration(milliseconds: 800);
 
-  bool circleAnimationForwaded = false;
-  bool showMap = false;
+  late final PageController _pageController;
+
+  late final AnimationController _vultureCircleController;
+  late final AnimationController _otherAnimationsController;
+  late final AnimationController _leopardBgSlideController;
+  late final Animation<double> _vultureCircleAnimation;
+
+  bool _circleRevealStarted = false; // one-shot guard per swipe-in
+  int _currentPage = 0;
+
   @override
   void initState() {
     super.initState();
-    vultureCircleAnimationController = AnimationController(
-      duration: _duration,
-      vsync: this,
-    );
-    otherAnimationsController = AnimationController(
-      duration: _duration,
-      vsync: this,
-    );
-    vultureCircleAnimation = CurvedAnimation(
-      parent: vultureCircleAnimationController,
-      curve: _curve,
-      // reverseCurve: _curve.flipped,
-    );
 
-    leopardBgSlideAnimationController = AnimationController(
+    _vultureCircleController = AnimationController(
+      duration: _revealDuration,
+      vsync: this,
+    );
+    _otherAnimationsController = AnimationController(
+      duration: _revealDuration,
+      vsync: this,
+    );
+    _leopardBgSlideController = AnimationController(
       duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
-    leopardBgSlideAnimation = CurvedAnimation(
-      parent: leopardBgSlideAnimationController,
-      curve: Curves.linear,
+    _vultureCircleAnimation = CurvedAnimation(
+      parent: _vultureCircleController,
+      curve: Curves.easeOut,
     );
 
-    _pageController = PageController(viewportFraction: 1.0)
-      ..addListener(() {
-        if (_pageController.page! >= 0.7 && !circleAnimationForwaded) {
-          circleAnimationForwaded = true;
-          vultureCircleAnimationController.forward();
-          otherAnimationsController.forward();
-        }
+    _pageController = PageController()..addListener(_handlePageScroll);
+  }
 
-        if (_pageController.page! > 0.0 &&
-            !leopardBgSlideAnimationController.isAnimating &&
-            !leopardBgSlideAnimationController.isForwardOrCompleted) {
-          leopardBgSlideAnimationController.repeat(count: 1);
-        }
-      });
+  void _handlePageScroll() {
+    final page = _pageController.page;
+    if (page == null) return;
+
+// To start animations in vultures page, we need to wait until the page is
+// scrolled 70% into view.
+    if (page >= 0.7 && !_circleRevealStarted) {
+      _circleRevealStarted = true;
+      _vultureCircleController.forward();
+      _otherAnimationsController.forward();
+    }
+
+    if (page > 0.0 &&
+        !_leopardBgSlideController.isAnimating &&
+        !_leopardBgSlideController.isForwardOrCompleted) {
+      _leopardBgSlideController.repeat(count: 1);
+    }
+  }
+
+  void _handlePageChanged(int index) {
+    setState(() => _currentPage = index);
+    if (index == 0) {
+      _circleRevealStarted = false;
+      _vultureCircleController.reset();
+      _otherAnimationsController.reset();
+    }
   }
 
   @override
   void dispose() {
     _pageController.dispose();
+    _vultureCircleController.dispose();
+    _otherAnimationsController.dispose();
+    _leopardBgSlideController.dispose();
     super.dispose();
   }
 
@@ -105,54 +116,36 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF262829),
-      body: Consumer<TravelProvider>(
-        builder: (context, value, child) {
-          return Stack(
-            fit: StackFit.expand,
-            children: [
-              Positioned(top: 20, left: 0, right: 0, child: TopWidget()),
-
-              Positioned.fill(
-                // top: value.showMap ? 0 : 60,
-                // left: 0,
-                // right: 0,
-                // bottom: value.showMap ? 0 : 80,
-                child: PageView(
-                  key: const PageStorageKey<String>('pageView'),
-                  padEnds: false,
-                  onPageChanged: (value) => setState(() {
-                    _currentPage = value;
-                    if (_currentPage == 0) {
-                      circleAnimationForwaded = false;
-                      vultureCircleAnimationController.reset();
-                      otherAnimationsController.reset();
-                    }
-                  }),
-                  controller: _pageController,
-                  children: [
-                    LeopardPage(controller: leopardBgSlideAnimationController),
-                    VulturePage(
-                      otherAnimationsController: otherAnimationsController,
-                      vultureCircleAnimationController:
-                          vultureCircleAnimationController,
-                      vultureCircleAnimation: vultureCircleAnimation,
-                    ),
-                  ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          const Positioned(top: 20, left: 0, right: 0, child: TopWidget()),
+          Positioned.fill(
+            child: PageView(
+              key: const PageStorageKey<String>('pageView'),
+              padEnds: false,
+              controller: _pageController,
+              onPageChanged: _handlePageChanged,
+              children: [
+                LeopardPage(controller: _leopardBgSlideController),
+                VulturePage(
+                  otherAnimationsController: _otherAnimationsController,
+                  vultureCircleAnimationController: _vultureCircleController,
+                  vultureCircleAnimation: _vultureCircleAnimation,
                 ),
-              ),
-
-              Positioned(
-                bottom: 20,
-                left: 0,
-                right: 0,
-                child: BottomWidget(
-                  currentPage: _currentPage,
-                  otherAnimationsController: otherAnimationsController,
-                ),
-              ),
-            ],
-          );
-        },
+              ],
+            ),
+          ),
+          Positioned(
+            bottom: 20,
+            left: 0,
+            right: 0,
+            child: BottomWidget(
+              currentPage: _currentPage,
+              otherAnimationsController: _otherAnimationsController,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -161,75 +154,51 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
 class BottomWidget extends StatelessWidget {
   const BottomWidget({
     super.key,
-    required int currentPage,
+    required this.currentPage,
     required this.otherAnimationsController,
-  }) : _currentPage = currentPage;
+  });
 
-  final int _currentPage;
+  final int currentPage;
   final AnimationController otherAnimationsController;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      // color: const Color(0xFF262829),
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (_currentPage == 0) LeopardPageDescription(),
-
+          if (currentPage == 0) const LeopardPageDescription(),
           const SizedBox(height: 20),
-          // Dots + share row
           Row(
-            // mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              //onMap
-              Container(
-                constraints: const BoxConstraints(minWidth: 60, maxWidth: 60),
-                child: _currentPage == 1
+              SizedBox(
+                width: 60,
+                child: currentPage == 1
                     ? FadeTransition(
                         opacity: otherAnimationsController,
                         child: GestureDetector(
-                          onTap: () => Provider.of<TravelProvider>(
-                            context,
-                            listen: false,
-                          ).toggleMap(),
-                          child: Text(
+                          onTap: () => context.read<TravelProvider>().toggleMap(),
+                          child: const Text(
                             "ON MAP",
                             style: TextStyle(
-                              color: const Color.fromARGB(255, 67, 73, 166),
+                              color: Color.fromARGB(255, 67, 73, 166),
                             ),
                           ),
                         ),
                       )
                     : null,
               ),
-              Spacer(),
-              // Page dots
-              Row(
+              const Spacer(),
+              const Row(
                 children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 5),
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
+                  _PageDot(active: true),
+                  SizedBox(width: 5),
+                  _PageDot(active: false),
                 ],
               ),
               const Spacer(),
-              // Share
               const Icon(Icons.share_outlined, color: Colors.white, size: 22),
             ],
           ),
@@ -240,16 +209,34 @@ class BottomWidget extends StatelessWidget {
   }
 }
 
+class _PageDot extends StatelessWidget {
+  const _PageDot({required this.active});
+
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 8,
+      height: 8,
+      decoration: BoxDecoration(
+        color: active ? Colors.white : Colors.white.withValues(alpha: 0.3),
+        shape: BoxShape.circle,
+      ),
+    );
+  }
+}
+
 class TopWidget extends StatelessWidget {
   const TopWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 56),
+    return const Padding(
+      padding: EdgeInsets.only(left: 20.0, right: 20.0, top: 56),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
+        children: [
           Text(
             "SY",
             style: TextStyle(

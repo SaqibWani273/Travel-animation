@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+
 const Color _kMutedGrey = Color(0xFF9A9A9A);
-/// Animated row of dots shown while the timeline is collapsed: an outlined
-/// start node, two middle dots that fade and widen, and a filled end node.
+
+// Collapsed progress indicator: outlined start node, two middle dots that fade
+// and widen, and a filled end node.
 class TravelProgressDots extends StatefulWidget {
   final AnimationController controller;
 
@@ -10,6 +12,7 @@ class TravelProgressDots extends StatefulWidget {
   @override
   State<TravelProgressDots> createState() => _TravelProgressDotsState();
 }
+
 class _TravelProgressDotsState extends State<TravelProgressDots> {
   static const double _dotSize = 5;
   static const double _bigDotSize = 10;
@@ -53,7 +56,6 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              // width: middleWidth + _bigDotSize * 2 + _gap,
               width: middleWidth + _bigDotSize + _gap,
               child: Opacity(
                 opacity: _dotsOpacity.value,
@@ -76,7 +78,6 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
                         ),
                       ),
                     ),
-                    // _buildFilledDot(),
                   ],
                 ),
               ),
@@ -109,66 +110,4 @@ class _TravelProgressDotsState extends State<TravelProgressDots> {
       ),
     );
   }
-}
-
-
-
-/// Paints a bottom-to-top growing line with progress nodes.
-class LinePainter extends CustomPainter {
-  /// Line growth progress, from 0.0 (collapsed) to 1.0 (fully drawn).
-  final double progress;
-
-  const LinePainter({required this.progress});
-
-  /// Node positions along the line (0.0 at bottom, 1.0 at top).
-  static const List<double> _nodeTargets = [0.0, 0.3, 0.6, 1.0];
-  static const double _nodeRadius = 5;
-  static const double _ringRadius = 6;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final linePaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-
-    final dotPaint = Paint()
-      ..color = Colors.white
-      ..style = PaintingStyle.fill;
-
-    final ringPaint = Paint()
-      ..color = Colors.white
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    final double centerX = size.width / 2;
-    final double startY = size.height; // Bottom of the canvas.
-    final double currentY = startY - (startY * progress);
-
-    // Draw the line as it grows from the bottom toward the top.
-    canvas.drawLine(
-      Offset(centerX, startY),
-      Offset(centerX, currentY),
-      linePaint,
-    );
-
-    for (final target in _nodeTargets) {
-      // Reveal a node only once the line has reached it.
-      if (progress < target) continue;
-
-      final double nodeY = startY - (startY * target);
-      canvas.drawCircle(Offset(centerX, nodeY), _nodeRadius, dotPaint);
-
-      final bool isEndpoint =
-          target == _nodeTargets.first || target == _nodeTargets.last;
-      if (!isEndpoint) {
-        // Intermediate nodes get an outer ring.
-        canvas.drawCircle(Offset(centerX, nodeY), _ringRadius, ringPaint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant LinePainter oldDelegate) =>
-      oldDelegate.progress != progress;
 }

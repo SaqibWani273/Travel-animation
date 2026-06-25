@@ -1,10 +1,11 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 
 class TravelProvider extends ChangeNotifier {
-  bool showMap = false;
+  bool _showMap = false;
+  bool get showMap => _showMap;
 
   void toggleMap() {
-    showMap = !showMap;
+    _showMap = !_showMap;
     notifyListeners();
   }
 }
