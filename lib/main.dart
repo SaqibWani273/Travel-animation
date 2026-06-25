@@ -1,7 +1,9 @@
 import 'dart:developer';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:travel_app_design/leopard_page.dart';
+import 'package:travel_app_design/travel_provider.dart';
 import 'package:travel_app_design/vulture_page.dart';
 
 void main() {
@@ -20,7 +22,10 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
       // home: const LeopardPage(),
-      home: const AnimatedHorizontalPages(),
+      home: ChangeNotifierProvider(
+        create: (context) => TravelProvider(),
+        child: const AnimatedHorizontalPages(),
+      ),
     );
   }
 }
@@ -100,132 +105,162 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF262829),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12.0),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 56),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Text(
-                    "SY",
-                    style: TextStyle(
+      body: Consumer<TravelProvider>(
+        builder: (context, value, child) {
+          return Stack(
+            fit: StackFit.expand,
+            children: [
+              Positioned(top: 20, left: 0, right: 0, child: TopWidget()),
+
+              Positioned.fill(
+                // top: value.showMap ? 0 : 60,
+                // left: 0,
+                // right: 0,
+                // bottom: value.showMap ? 0 : 80,
+                child: PageView(
+                  key: const PageStorageKey<String>('pageView'),
+                  padEnds: false,
+                  onPageChanged: (value) => setState(() {
+                    _currentPage = value;
+                    if (_currentPage == 0) {
+                      circleAnimationForwaded = false;
+                      vultureCircleAnimationController.reset();
+                      otherAnimationsController.reset();
+                    }
+                  }),
+                  controller: _pageController,
+                  children: [
+                    LeopardPage(controller: leopardBgSlideAnimationController),
+                    VulturePage(
+                      otherAnimationsController: otherAnimationsController,
+                      vultureCircleAnimationController:
+                          vultureCircleAnimationController,
+                      vultureCircleAnimation: vultureCircleAnimation,
+                    ),
+                  ],
+                ),
+              ),
+
+              Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: BottomWidget(
+                  currentPage: _currentPage,
+                  otherAnimationsController: otherAnimationsController,
+                ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class BottomWidget extends StatelessWidget {
+  const BottomWidget({
+    super.key,
+    required int currentPage,
+    required this.otherAnimationsController,
+  }) : _currentPage = currentPage;
+
+  final int _currentPage;
+  final AnimationController otherAnimationsController;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      // color: const Color(0xFF262829),
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_currentPage == 0) LeopardPageDescription(),
+
+          const SizedBox(height: 20),
+          // Dots + share row
+          Row(
+            // mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              //onMap
+              Container(
+                constraints: const BoxConstraints(minWidth: 60, maxWidth: 60),
+                child: _currentPage == 1
+                    ? FadeTransition(
+                        opacity: otherAnimationsController,
+                        child: GestureDetector(
+                          onTap: () => Provider.of<TravelProvider>(
+                            context,
+                            listen: false,
+                          ).toggleMap(),
+                          child: Text(
+                            "ON MAP",
+                            style: TextStyle(
+                              color: const Color.fromARGB(255, 67, 73, 166),
+                            ),
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
+              Spacer(),
+              // Page dots
+              Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
                       color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                  Icon(Icons.menu, color: Colors.white, size: 24),
-                ],
-              ),
-            ),
-            Expanded(
-              child: PageView(
-                padEnds: false,
-                onPageChanged: (value) => setState(() {
-                  _currentPage = value;
-                  if (_currentPage == 0) {
-                    circleAnimationForwaded = false;
-                    vultureCircleAnimationController.reset();
-                    otherAnimationsController.reset();
-                  }
-                }),
-                controller: _pageController,
-                children: [
-                  LeopardPage(controller: leopardBgSlideAnimationController),
-                  VulturePage(
-                    otherAnimationsController: otherAnimationsController,
-                    vultureCircleAnimationController:
-                        vultureCircleAnimationController,
-                    vultureCircleAnimation: vultureCircleAnimation,
-                    
+                  const SizedBox(width: 5),
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ],
               ),
-            ),
+              const Spacer(),
+              // Share
+              const Icon(Icons.share_outlined, color: Colors.white, size: 22),
+            ],
+          ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
 
-            Container(
-              color: const Color(0xFF262829),
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (_currentPage == 0) LeopardPageDescription(),
+class TopWidget extends StatelessWidget {
+  const TopWidget({super.key});
 
-                  const SizedBox(height: 20),
-                  // Dots + share row
-                  Row(
-                    // mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      //onMap
-                      Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 60,
-                          maxWidth: 60,
-                        ),
-                        child: _currentPage == 1
-                            ? FadeTransition(
-                                opacity: otherAnimationsController,
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      setState(() => showMap = !showMap),
-                                  child: Text(
-                                    "ON MAP",
-                                    style: TextStyle(
-                                      color: const Color.fromARGB(
-                                        255,
-                                        67,
-                                        73,
-                                        166,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : null,
-                      ),
-                      Spacer(),
-                      // Page dots
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: const BoxDecoration(
-                              color: Colors.white,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.3),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      // Share
-                      const Icon(
-                        Icons.share_outlined,
-                        color: Colors.white,
-                        size: 22,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 20.0, right: 20.0, top: 56),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: const [
+          Text(
+            "SY",
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 1,
             ),
-          ],
-        ),
+          ),
+          Icon(Icons.menu, color: Colors.white, size: 24),
+        ],
       ),
     );
   }

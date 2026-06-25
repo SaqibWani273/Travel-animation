@@ -25,7 +25,7 @@ class _LeopardPageState extends State<LeopardPage>
         alignment: Alignment.centerLeft,
         children: [
           Positioned(
-            top: screenHeight * 0.12,
+            top: screenHeight * 0.18,
             left: -(screenWidth * 0.25 + (_controller.value * 200)),
 
             child: Transform.rotate(
@@ -46,9 +46,10 @@ class _LeopardPageState extends State<LeopardPage>
 
           // ── Leopard image ────────────────────────────────────────────
           Positioned(
-            left: 0,
+            left: 15,
+
             right: 0,
-            top: screenHeight * 0.2,
+            top: screenHeight * 0.25,
             child: Image.asset(
               width: screenWidth * 0.8,
               height: screenWidth * 0.7,
