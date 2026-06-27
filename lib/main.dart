@@ -79,8 +79,8 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
     final page = _pageController.page;
     if (page == null) return;
 
-// To start animations in vultures page, we need to wait until the page is
-// scrolled 70% into view.
+    // To start animations in vultures page, we need to wait until the page is
+    // scrolled 70% into view.
     if (page >= 0.7 && !_circleRevealStarted) {
       _circleRevealStarted = true;
       _vultureCircleController.forward();
@@ -126,6 +126,7 @@ class _AnimatedHorizontalPagesState extends State<AnimatedHorizontalPages>
               padEnds: false,
               controller: _pageController,
               onPageChanged: _handlePageChanged,
+              physics: ClampingScrollPhysics(),
               children: [
                 LeopardPage(controller: _leopardBgSlideController),
                 VulturePage(
@@ -179,7 +180,8 @@ class BottomWidget extends StatelessWidget {
                     ? FadeTransition(
                         opacity: otherAnimationsController,
                         child: GestureDetector(
-                          onTap: () => context.read<TravelProvider>().toggleMap(),
+                          onTap: () =>
+                              context.read<TravelProvider>().toggleMap(),
                           child: const Text(
                             "ON MAP",
                             style: TextStyle(
@@ -191,11 +193,11 @@ class BottomWidget extends StatelessWidget {
                     : null,
               ),
               const Spacer(),
-              const Row(
+              Row(
                 children: [
-                  _PageDot(active: true),
+                  _PageDot(active: currentPage == 0),
                   SizedBox(width: 5),
-                  _PageDot(active: false),
+                  _PageDot(active: currentPage == 1),
                 ],
               ),
               const Spacer(),

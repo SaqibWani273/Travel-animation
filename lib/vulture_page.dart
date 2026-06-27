@@ -1,3 +1,6 @@
+import 'dart:developer';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:travel_app_design/curved_route_line.dart';
@@ -252,11 +255,27 @@ class _VulturePageState extends State<VulturePage>
 
   Widget _buildMapImage(bool showMap) {
     return Positioned.fill(
-      child: AnimatedOpacity(
-        opacity: showMap ? 1.0 : 0.0,
-        duration: const Duration(milliseconds: 1800),
-        curve: Curves.easeInOut,
-        child: Image.asset(fit: BoxFit.cover, 'assets/images/sanctuary.png'),
+      child: AnimatedBuilder(
+        animation: _morphAnimation,
+        builder: (context, child) {
+          log("angle->  ${-(math.pi / 4) * _morphAnimation.value}   ");
+          log(" _morphAnimation.value ->  ${_morphAnimation.value}   ");
+          double scale = 1 + 0.3 * (1 - _morphAnimation.value);
+          return Transform(
+            transform: Matrix4.identity()
+              ..scale(scale, scale)
+              ..rotateZ(0.05 * math.pi * (1 - _morphAnimation.value)),
+            child: Opacity(
+              opacity: _morphAnimation.value,
+              child: SizedBox(
+                child: Image.asset(
+                  fit: BoxFit.cover,
+                  'assets/images/sanctuary.png',
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
