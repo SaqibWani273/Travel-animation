@@ -6,9 +6,11 @@ I mostly built it to see how far I could push hand-tuned, gesture-driven motion 
 
 ## Demo
 
-<video src="assets/demo.mp4" controls muted playsinline width="320">
-  Your browser can't play the embedded video — <a href="assets/demo.mp4">watch <code>assets/demo.mp4</code></a> instead.
-</video>
+
+
+https://github.com/user-attachments/assets/b1270911-7040-439a-80b2-835da83be1e7
+
+
 
 > If the player doesn't load inline, open [`assets/demo.mp4`](assets/demo.mp4) directly.
 
